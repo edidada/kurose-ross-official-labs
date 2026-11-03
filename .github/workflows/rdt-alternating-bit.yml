@@ -1,0 +1,20 @@
+name: Kurose Ross reliable transport alternating bit
+on:
+  push:
+    branches: [edidada/rdt-alternating-bit]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  network:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - working-directory: rdtsim_python_lab_only
+        run: python -m unittest -v test_rdt
+      - working-directory: rdtsim_python_lab_only
+        run: python rdtsim.py -n 100 -l 0.2 -c 0.2 -s 42

@@ -98,44 +98,66 @@ class Pkt:
 ## ****************************************************************************
 
 class EntityA:
-    # The following method will be called once (only) before any other
-    # EntityA methods are called.  You can use it to do any initialization.
-    #
-    # seqnum_limit is "the number of distinct seqnum values that your protocol
-    # may use."  The seqnums and acknums in all layer3 Pkts must be between
-    # zero and seqnum_limit-1, inclusive.  E.g., if seqnum_limit is 16, then
-    # all seqnums must be in the range 0-15.
     def __init__(self, seqnum_limit):
-        pass
+        from collections import deque
+        if seqnum_limit < 2:
+            raise ValueError('Alternating bit requires two sequence numbers')
+        self.sequence = 0
+        self.queue = deque()
+        self.pending = None
+        self.timeout = 30.0
 
-    # Called from layer 5, passed the data to be sent to other side.
-    # The argument `message` is a Msg containing the data to be sent.
+    def checksum(self, packet):
+        import zlib
+        return zlib.crc32(packet.seqnum.to_bytes(4, 'big') +
+                          packet.acknum.to_bytes(4, 'big') + packet.payload)
+
+    def send_next(self):
+        if self.pending is None and self.queue:
+            self.pending = Pkt(self.sequence, self.sequence, 0, self.queue.popleft())
+            self.pending.checksum = self.checksum(self.pending)
+            to_layer3(self, self.pending)
+            start_timer(self, self.timeout)
+
     def output(self, message):
-        pass
+        self.queue.append(message.data)
+        self.send_next()
 
-    # Called from layer 3, when a packet arrives for layer 4 at EntityA.
-    # The argument `packet` is a Pkt containing the newly arrived packet.
     def input(self, packet):
-        pass
+        if (self.pending is not None and packet.checksum == self.checksum(packet)
+                and packet.acknum == self.sequence):
+            stop_timer(self)
+            self.pending = None
+            self.sequence ^= 1
+            self.send_next()
 
-    # Called when A's timer goes off.
     def timer_interrupt(self):
-        pass
+        if self.pending is not None:
+            to_layer3(self, self.pending)
+            start_timer(self, self.timeout)
 
 class EntityB:
-    # The following method will be called once (only) before any other
-    # EntityB methods are called.  You can use it to do any initialization.
-    #
-    # See comment above `EntityA.__init__` for the meaning of seqnum_limit.
     def __init__(self, seqnum_limit):
-        pass
+        if seqnum_limit < 2:
+            raise ValueError('Alternating bit requires two sequence numbers')
+        self.expected = 0
 
-    # Called from layer 3, when a packet arrives for layer 4 at EntityB.
-    # The argument `packet` is a Pkt containing the newly arrived packet.
+    def checksum(self, packet):
+        import zlib
+        return zlib.crc32(packet.seqnum.to_bytes(4, 'big') +
+                          packet.acknum.to_bytes(4, 'big') + packet.payload)
+
     def input(self, packet):
-        pass
+        if packet.checksum == self.checksum(packet) and packet.seqnum == self.expected:
+            to_layer5(self, Msg(packet.payload))
+            self.expected ^= 1
+        # ACK the last in-order packet, including after a corrupt packet or
+        # duplicate delivery. Initial ACK 1 cannot acknowledge pending seq 0.
+        acknowledged = self.expected ^ 1
+        ack = Pkt(acknowledged, acknowledged, 0, bytes(Msg.MSG_SIZE))
+        ack.checksum = self.checksum(ack)
+        to_layer3(self, ack)
 
-    # Called when B's timer goes off.
     def timer_interrupt(self):
         pass
 
