@@ -1,0 +1,13 @@
+{
+  "publication_kind": "official-archive-import",
+  "imported_at": "2026-11-02",
+  "evidence": "https://gaia.cs.umass.edu/kurose_ross/programming.php",
+  "archives": [
+    {
+      "directory": "rdtsim_python_lab_only",
+      "url": "https://gaia.cs.umass.edu/kurose_ross/programming/RDT/rdtsim_python%20lab_only.zip",
+      "sha256": "48347d86d58a2c5fd0bcd8d920bf2af8e90a204681ce89543fa2f710909340e9",
+      "bytes": 6219
+    }
+  ]
+}

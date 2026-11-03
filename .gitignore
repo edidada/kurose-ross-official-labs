@@ -1,0 +1,8 @@
+.DS_Store
+._*
+__MACOSX/
+__pycache__/
+*.pyc
+.venv/
+**/target/
+.csdiy-import-state.json
